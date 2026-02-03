@@ -86,6 +86,26 @@
     color: var(--muted); font-weight:700; font-size:12px;
     cursor:pointer; user-select:none;
   }
+  .cite{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; margin-left:6px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.18);
+    color: var(--muted);
+    font-size:12px;
+    cursor:help;
+  }
+  .cite:hover{ color: var(--text); border-color: rgba(255,255,255,.35); }
+  #modalBody table{ width:100%; border-collapse:collapse; }
+  #modalBody th, #modalBody td{
+    border-bottom:1px solid rgba(255,255,255,.10);
+    padding:8px 10px;
+    font-size:13px;
+    vertical-align:top;
+  }
+  #modalBody th{ color: var(--muted); font-weight:600; text-align:left;}
+  #modalBody .mini{ color: var(--muted); font-size:12px;}
+
   .help:hover{border-color: rgba(2,174,239,.65); color: var(--text)}
   .actions{display:flex; gap:10px; flex-wrap:wrap}
   .btn{
@@ -184,6 +204,13 @@
   .modal p{margin:8px 0 0 0; color:var(--muted); line-height:1.5}
   .warn{color:#ffd6dd}
   .muted{color:var(--muted)}
+
+  details.details{background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:10px 12px;}
+  details.details summary{cursor:pointer; list-style:none; font-weight:700; color:var(--text);}
+  details.details summary::-webkit-details-marker{display:none;}
+  details.details summary:after{content:"▾"; float:right; opacity:.7;}
+  details.details[open] summary:after{content:"▴";}
+
 </style>
 </head>
 <body>
@@ -207,6 +234,7 @@
       <button class="btn" id="btnDownload">Download ROI summary</button>
       <button class="btn ghost" id="btnHow">How this works</button>
       <button class="btn ghost" id="btnAssumptions">Assumptions</button>
+      <button class="btn ghost" id="btnAssumpTable">Assumption values table</button>
       <button class="btn gold" id="btnExampleReg">Example: Regulated</button>
       <button class="btn gold" id="btnExampleProd">Example: Product org</button>
     </div>
@@ -436,6 +464,25 @@
           <tbody id="breakdown"></tbody>
         </table>
 
+        <details class="details" style="margin-top:10px">
+          <summary>Show calculation details (how each line is computed)</summary>
+          <div class="mini" style="margin:8px 0 10px 0">These are the exact formulas used with your inputs and the selected scenario assumptions. “Hard” lines feed ROI; “Soft” is shown separately unless you choose to monetize it.</div>
+          <div style="overflow:auto">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Line item</th>
+                  <th>Type</th>
+                  <th>Assumption</th>
+                  <th>Formula (with your values)</th>
+                  <th style="text-align:right">Annual value</th>
+                </tr>
+              </thead>
+              <tbody id="details"></tbody>
+            </table>
+          </div>
+        </details>
+
         <div class="row" style="margin-top:12px">
           <div class="field">
             <div class="labelrow">
@@ -446,10 +493,50 @@
           </div>
           <div class="field">
             <div class="labelrow">
-              <label>3‑year cost of tool (licenses + services) USD</label>
+              <label>DOORS Next licensing (annual) USD</label>
+              <span class="help" data-help="licenseAnnual">?</span>
+            </div>
+            <input id="licenseAnnual" type="number" value="60000" min="0" step="1000"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Services (one‑time implementation/migration) USD</label>
+              <span class="help" data-help="servicesOneTime">?</span>
+            </div>
+            <input id="servicesOneTime" type="number" value="60000" min="0" step="1000"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>Services/support (annual) USD</label>
+              <span class="help" data-help="servicesAnnual">?</span>
+            </div>
+            <input id="servicesAnnual" type="number" value="0" min="0" step="1000"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Computed 3‑year cost (licenses + services) USD</label>
               <span class="help" data-help="cost3yr">?</span>
             </div>
-            <input id="cost3yr" type="number" value="240000" min="0" step="5000"/>
+            <input id="cost3yr" type="number" value="240000" min="0" step="5000" readonly/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>Override computed 3‑year cost</label>
+              <span class="help" data-help="cost3yrOverride">?</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <input id="cost3yrOverride" type="number" value="240000" min="0" step="5000" style="flex:1"/>
+              <label class="pill" style="cursor:pointer;user-select:none">
+                <input id="useOverride" type="checkbox" style="transform:translateY(1px);margin-right:6px"/>
+                Use override
+              </label>
+            </div>
           </div>
         </div>
 
@@ -593,8 +680,11 @@
     auditHours: { title:"Audit/compliance prep hours", body:"Hours per project spent collecting evidence, generating requirement docs, trace matrices, and approvals.", bullets:["If you are in regulated industries, this can be 40–300+ hours per project.","Better traceability and reporting can reduce this significantly."]},
     delayValue: { title:"Opportunity cost per delayed month", body:"Soft value of delivering later (revenue, penalties, customer churn risk, internal productivity loss).", bullets:["If you don’t want to use soft benefits, set this to 0."]},
     discount: { title:"Discount rate", body:"Annual discount rate for NPV. Used to discount future net benefits.", bullets:["If you want a simple ROI without NPV, you can ignore this."]},
-    cost3yr: { title:"3‑year cost", body:"Total cost for licenses + implementation services + training over 3 years.", bullets:["Use a CPQ estimate or placeholder, then refine.","This tool spreads it across years; edit COST_SPLIT in the file if needed."]}
-  };
+    licenseAnnual: { title:"DOORS Next licensing (annual)", body:"Your expected annual subscription/licensing cost for DOORS Next (or equivalent tool scope).", bullets:["If you have token pricing or a multi-year quote, convert to an annualized amount (or use the Override field)."]},
+    servicesOneTime: { title:"Services (one-time)", body:"One-time services such as implementation, migration, integrations, process setup, and training.", bullets:["If you will phase services, you can still enter the full total here—cashflow spreads the combined 3-year cost."]},
+    servicesAnnual: { title:"Services/support (annual)", body:"Optional recurring services such as managed admin, configuration support, or enhancement capacity.", bullets:["Set to 0 if you will not have recurring services."]},
+    cost3yr: { title:"Computed 3-year cost", body:"This is calculated automatically as: (Licensing × 3) + One-time Services + (Annual Services × 3).", bullets:["Use the Override toggle if you prefer to enter a quoted 3-year total directly."]},
+    cost3yrOverride: { title:"Override computed 3-year cost", body:"When 'Use override' is checked, the calculator uses this value as the total 3-year cost instead of the computed total.", bullets:["Helpful for true-up pricing, ramped adoption, multi-year enterprise agreements, or bundled quotes."]}  };
 
   // ---- Small helpers ----
   const $ = (id)=>document.getElementById(id);
@@ -615,6 +705,29 @@
     const fte = Number($("fteCost").value||0);
     const h = Math.max(1, Number($("hoursYr").value||1840));
     return fte / h;
+  }
+
+  // ---- Cost model (licensing + services) ----
+  function computeCost3yr(){
+    const lic = Number($("licenseAnnual")?.value||0);
+    const svc1 = Number($("servicesOneTime")?.value||0);
+    const svcA = Number($("servicesAnnual")?.value||0);
+    const computed = lic*3 + svc1 + svcA*3;
+
+    const useOv = $("useOverride")?.checked;
+    const ov = Number($("cost3yrOverride")?.value||0);
+    return (useOv ? ov : computed);
+  }
+
+  function refreshCostFields(){
+    const lic = Number($("licenseAnnual")?.value||0);
+    const svc1 = Number($("servicesOneTime")?.value||0);
+    const svcA = Number($("servicesAnnual")?.value||0);
+    const computed = lic*3 + svc1 + svcA*3;
+
+    if($("cost3yr")) $("cost3yr").value = Math.round(computed);
+    // keep override aligned unless user is using it
+    if($("useOverride") && !$("useOverride").checked && $("cost3yrOverride")) $("cost3yrOverride").value = Math.round(computed);
   }
 
   // ---- Core math ----
@@ -647,7 +760,7 @@
     const auditHours = Number($("auditHours").value||0);
     const delayValue = Number($("delayValue").value||0);
 
-    const cost3yr = Number($("cost3yr").value||0);
+    const cost3yr = computeCost3yr();
     const disc = clamp(Number($("discount").value||0),0,50)/100;
 
     const hr = hourlyRate();
@@ -725,15 +838,64 @@
 
     const npv = net.reduce((s,x,i)=> s + (x/Math.pow(1+disc, i+1)), 0);
 
-    // Build breakdown
+    // Build breakdown + calculation details (transparent math)
     const lines = [
-      {name:"Requirements authoring + change control productivity", type:"Hard", annual:reqSavings},
-      {name:"Review workflow efficiency (less admin + faster approvals)", type:"Hard", annual:reviewSavings},
-      {name:"Avoided churn/rejected requirements (less wasted work)", type:"Hard", annual:rejectSavings},
-      {name:"Defect detection shift (fix earlier vs later)", type:"Hard", annual:defectSavings},
-      {name:"Compliance & audit prep effort reduction", type:"Hard", annual:auditSavings},
-      {name:"Tool consolidation / reduced adjacent tool spend", type:"Hard", annual:toolConsolidation},
-      {name:"Time‑to‑market / delay avoidance (soft)", type:"Soft", annual:softAnnual}
+      {
+        name:"Requirements authoring + change control productivity",
+        type:"Hard",
+        annual:reqSavings,
+        assumption: pct(a.req_productivity_pct*scopeMult),
+        cite: "Source: IBM Business Value Analyst (BVA) style productivity improvements for requirements capture/management (see your 'Business Value Analyst' worksheets). Adjust to your org; scenario ranges represent conservative/expected/aggressive adoption.",
+        formula: `baselineReqHrs(${baselineReqHrs.toFixed(0)}h) × productivity(${pct(a.req_productivity_pct*scopeMult)}) × hr($${hr.toFixed(2)})`
+      },
+      {
+        name:"Review workflow efficiency (less admin + faster approvals)",
+        type:"Hard",
+        annual:reviewSavings,
+        assumption: pct(a.review_efficiency_pct*scopeMult),
+        cite: "Source: BVA-style workflow efficiency improvements for requirements review/approval cycles; often attributed to better collaboration, versioning, and change control.",
+        formula: `baselineReviewHrs(${baselineReviewHrs.toFixed(0)}h) × efficiency(${pct(a.review_efficiency_pct*scopeMult)}) × hr($${hr.toFixed(2)})`
+      },
+      {
+        name:"Avoided churn/rejected requirements (less wasted work)",
+        type:"Hard",
+        annual:rejectSavings,
+        assumption: pct(rejectAvoidPct),
+        cite: "Source: Model assumption (directional). Benefit comes from earlier stakeholder alignment, traceability, and structured reviews reducing rework and rejected requirements.",
+        formula: `rejectedCount(${rejectedCount.toFixed(0)}) × hrsPerRejected(${(1.0 + 1.5*devTeam/10).toFixed(2)}h) × avoidPct(${pct(rejectAvoidPct)}) × hr($${hr.toFixed(2)})`
+      },
+      {
+        name:"Defect detection shift (fix earlier vs later)",
+        type:"Hard",
+        annual:defectSavings,
+        assumption: `${(shiftedDefects).toFixed(1)} defects shifted`,
+        cite: "Source: Defect cost-of-change principle (earlier detection costs less than later). This model uses your early/late fix hours inputs; DOORS contributes via better requirement clarity + traceability + review discipline.",
+        formula: `defects(${defects.toFixed(1)}) × shifted(${(earlyAdded*100).toFixed(1)}%) × hrsSavedEach(${hrsSavedPerShift.toFixed(1)}h) × hr($${hr.toFixed(2)})`
+      },
+      {
+        name:"Compliance & audit prep effort reduction",
+        type:"Hard",
+        annual:auditSavings,
+        assumption: pct(a.compliance_efficiency_pct*scopeMult),
+        cite: "Source: BVA-style compliance/audit effort reduction from improved traceability, baselining, and evidence collection. Calibrated by your audit hours input.",
+        formula: `projects(${projects}) × auditHours(${auditHours.toFixed(1)}h) × efficiency(${pct(a.compliance_efficiency_pct*scopeMult)}) × hr($${hr.toFixed(2)})`
+      },
+      {
+        name:"Tool consolidation / reduced adjacent tool spend",
+        type:"Hard",
+        annual:toolConsolidation,
+        assumption: pct(a.tool_consolidation_pct),
+        cite: "Source: Model assumption (directional). Represents retiring overlapping tools/processes once DOORS becomes the system of record.",
+        formula: `annualRunRate($${annualToolCostRunRate.toFixed(0)}) × consolidationPct(${pct(a.tool_consolidation_pct)})`
+      },
+      {
+        name:"Time‑to‑market / delay avoidance (soft)",
+        type:"Soft",
+        annual:softAnnual,
+        assumption: pct(a.time_to_market_pct*scopeMult),
+        cite: "Source: Forrester TEI-style 'flexibility/strategic' benefit framing. Shown as soft unless you choose to monetize; driven by your value-per-month input.",
+        formula: `projects(${projects}) × monthsSaved(${timeToMarketMoSaved.toFixed(2)}) × valuePerMonth($${delayValue.toFixed(0)})`
+      }
     ];
 
     return {hardAnnual, softAnnual, roi, npv, paybackMonths, costs, benefits, net, lines};
@@ -763,6 +925,25 @@
       `;
       tb.appendChild(tr);
     });
+
+    // calculation details table
+    const dt = $("details");
+    if(dt){
+      dt.innerHTML = "";
+      r.lines.forEach(x=>{
+        const tr = document.createElement("tr");
+        const t = x.type==="Hard" ? '<span class="tag"><span class="dot"></span>Hard</span>' :
+                                   '<span class="tag"><span class="dot soft"></span>Soft</span>';
+        tr.innerHTML = `
+          <td>${escapeHtml(x.name)}</td>
+          <td>${t}</td>
+          <td>${escapeHtml(x.assumption||"—")}${x.cite?`<span class="cite" title="${escapeHtml(x.cite)}">i</span>`:""}</td>
+          <td><span class="mini">${escapeHtml(x.formula||"—")}</span></td>
+          <td style="text-align:right">${money(x.annual)}</td>
+        `;
+        dt.appendChild(tr);
+      });
+    }
 
     // cashflow
     const cf = $("cashflow");
@@ -802,7 +983,7 @@ Key inputs
 - Projects/year: ${$("projects").value}
 - Requirements/project: ${$("reqPerProject").value}
 - Loaded hourly rate (derived): ${money(hr)}/hr
-- 3-year cost: ${money(Number($("cost3yr").value||0))}
+- 3-year cost: ${money(computeCost3yr())}
 
 Results (hard-dollar)
 - Annual hard-dollar savings: ${money(r.hardAnnual)}
@@ -853,7 +1034,79 @@ Notes
     modalWrap.style.display="flex";
     modalWrap.setAttribute("aria-hidden","false");
   }
-  function closeHelp(){
+  
+  function openAssumptionTable(){
+    // Build a buyer-friendly table of the scenario ranges that drive the savings math.
+    const rows = [
+      {k:"req_productivity_pct", label:"Requirements productivity", type:"Hard", unit:"% of req effort saved",
+       cite:"BVA-style productivity improvements for requirements capture/management (directional; calibrate with your org)."},
+      {k:"review_efficiency_pct", label:"Review workflow efficiency", type:"Hard", unit:"% of review effort saved",
+       cite:"BVA-style workflow efficiency improvements for requirements reviews/approvals (directional; calibrate with your org)."},
+      {k:"defect_shift_pct", label:"Defect detection shift", type:"Hard", unit:"absolute points added to early detection",
+       cite:"Defect cost-of-change principle: shifting discovery earlier reduces fix effort. This model uses your early/late fix hours inputs."},
+      {k:"compliance_efficiency_pct", label:"Compliance / audit prep efficiency", type:"Hard", unit:"% of audit prep effort saved",
+       cite:"Traceability/baselining/evidence collection often reduce audit prep time; use your audit-hours input to calibrate."},
+      {k:"tool_consolidation_pct", label:"Tool consolidation", type:"Hard", unit:"% of annual tool run-rate avoided",
+       cite:"Directional estimate for retiring overlapping tools/processes once DOORS becomes the system of record."},
+      {k:"time_to_market_pct", label:"Time-to-market improvement", type:"Soft", unit:"% of schedule months saved",
+       cite:"Forrester TEI-style strategic/flexibility benefit framing. Shown as soft unless you monetize it."}
+    ];
+
+    const fmtPct = (x)=> (x*100).toFixed(0)+"%";
+
+    let html = `
+      <div class="mini" style="margin-bottom:8px">
+        These are the scenario ranges used by the calculator. “Hard” items flow into ROI. “Soft” is shown separately unless you choose to monetize it.
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Assumption driver</th>
+            <th>Type</th>
+            <th>Unit</th>
+            <th>Conservative</th>
+            <th>Expected</th>
+            <th>Aggressive</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    rows.forEach(r=>{
+      const c = RANGE.conservative[r.k];
+      const e = RANGE.expected[r.k];
+      const a = RANGE.aggressive[r.k];
+
+      // defect_shift is shown as percentage points for readability
+      const cell = (val)=> (r.k==="defect_shift_pct") ? ((val*100).toFixed(0)+" pts") : fmtPct(val);
+
+      html += `
+        <tr>
+          <td>${escapeHtml(r.label)} <span class="cite" title="${escapeHtml("Source: " + r.cite)}">i</span></td>
+          <td>${escapeHtml(r.type)}</td>
+          <td class="mini">${escapeHtml(r.unit)}</td>
+          <td>${cell(c)}</td>
+          <td>${cell(e)}</td>
+          <td>${cell(a)}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+        </tbody>
+      </table>
+      <div class="mini" style="margin-top:10px">
+        Tip: If you have a customer-specific benchmark, replace the scenario values in the RANGE object in this file.
+      </div>
+    `;
+
+    modalTitle.textContent = "Assumption values table (by scenario)";
+    modalBody.innerHTML = html;
+    modalBullets.innerHTML = "";
+    modalWrap.style.display="flex";
+    modalWrap.setAttribute("aria-hidden","false");
+  }
+function closeHelp(){
     modalWrap.style.display="none";
     modalWrap.setAttribute("aria-hidden","true");
   }
@@ -877,7 +1130,10 @@ Notes
       $("fixLate").value = 16;
       $("reviewMin").value = 14;
       $("reviewers").value = 4;
-      $("cost3yr").value = 320000;
+      $("licenseAnnual").value = 80000;
+      $("servicesOneTime").value = 80000;
+      $("servicesAnnual").value = 0;
+      refreshCostFields();
       $("scenario").value = "expected";
     }
     if(which==="product"){
@@ -894,17 +1150,29 @@ Notes
       $("fixLate").value = 10;
       $("reviewMin").value = 10;
       $("reviewers").value = 3;
-      $("cost3yr").value = 210000;
+      $("licenseAnnual").value = 60000;
+      $("servicesOneTime").value = 30000;
+      $("servicesAnnual").value = 0;
+      refreshCostFields();
       $("scenario").value = "expected";
     }
     render();
   }
 
   // ---- Wire up UI ----
+  // keep computed 3-year cost in sync with licensing/services inputs
+  ["licenseAnnual","servicesOneTime","servicesAnnual","cost3yrOverride","useOverride"].forEach(id=>{
+    const el = $(id);
+    if(!el) return;
+    el.addEventListener("input", ()=>{ refreshCostFields(); });
+    el.addEventListener("change", ()=>{ refreshCostFields(); });
+  });
+
   $("btnRun").addEventListener("click", render);
   $("btnDownload").addEventListener("click", downloadSummary);
   $("btnHow").addEventListener("click", ()=>openHelp("how"));
   $("btnAssumptions").addEventListener("click", ()=>openHelp("assumptions"));
+  $("btnAssumpTable").addEventListener("click", openAssumptionTable);
   $("btnExampleReg").addEventListener("click", ()=>setExample("regulated"));
   $("btnExampleProd").addEventListener("click", ()=>setExample("product"));
 
@@ -913,6 +1181,7 @@ Notes
   });
 
   // initial render
+  refreshCostFields();
   render();
 
   function escapeHtml(str){
