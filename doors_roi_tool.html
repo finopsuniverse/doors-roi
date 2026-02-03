@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>IBM DOORS ROI Calculator (single‑file)</title>
+<style>
+  :root{
+    --bg:#070b14; --card:#0e1530; --card2:#0b1024; --text:#e8ecff; --muted:#a7b0d6;
+    --line:rgba(255,255,255,.10); --accent:#02aeef; --accent2:#eeb120; --good:#35d07f; --bad:#ff5c77;
+    --shadow: 0 18px 50px rgba(0,0,0,.45);
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    background: radial-gradient(1200px 800px at 15% 10%, rgba(2,174,239,.18), transparent 55%),
+                radial-gradient(1000px 700px at 85% 10%, rgba(238,177,32,.12), transparent 55%),
+                linear-gradient(180deg, #050815, #070b14);
+    color:var(--text);
+  }
+  a{color:inherit}
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 16px 52px;}
+  header{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    margin-bottom:18px;
+  }
+  .brand{
+    display:flex; flex-direction:column; gap:6px;
+  }
+  h1{margin:0; font-size:24px; letter-spacing:.2px}
+  .sub{color:var(--muted); font-size:13px; line-height:1.35; max-width:760px}
+  .pillrow{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .pill{
+    font-size:12px; color:var(--muted); border:1px solid var(--line);
+    padding:7px 10px; border-radius:999px; background: rgba(255,255,255,.03);
+  }
+  .grid{
+    display:grid; gap:14px;
+    grid-template-columns: 1.05fr .95fr;
+    align-items:start;
+  }
+  @media (max-width: 980px){
+    .grid{grid-template-columns:1fr}
+  }
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow:hidden;
+  }
+  .card .hd{
+    padding:14px 16px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background: rgba(0,0,0,.12);
+  }
+  .card .hd h2{margin:0; font-size:16px}
+  .card .bd{padding:14px 16px}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  @media (max-width:640px){.row{grid-template-columns:1fr}}
+  .field{
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 10px 9px;
+    background: rgba(0,0,0,.18);
+  }
+  .labelrow{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  label{font-size:12px; color:var(--muted)}
+  input, select{
+    width:100%;
+    margin-top:6px;
+    padding:10px 10px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.04);
+    color: var(--text);
+    outline:none;
+    font-size:14px;
+  }
+  input:focus, select:focus{border-color: rgba(2,174,239,.55); box-shadow:0 0 0 3px rgba(2,174,239,.12)}
+  .help{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; border-radius:999px;
+    border:1px solid rgba(255,255,255,.18);
+    color: var(--muted); font-weight:700; font-size:12px;
+    cursor:pointer; user-select:none;
+  }
+  .help:hover{border-color: rgba(2,174,239,.65); color: var(--text)}
+  .actions{display:flex; gap:10px; flex-wrap:wrap}
+  .btn{
+    border:1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.04);
+    color: var(--text);
+    padding:10px 12px;
+    border-radius:999px;
+    cursor:pointer;
+    font-weight:600;
+    font-size:13px;
+  }
+  .btn:hover{border-color: rgba(255,255,255,.30)}
+  .btn.primary{
+    border-color: rgba(2,174,239,.55);
+    background: rgba(2,174,239,.10);
+  }
+  .btn.primary:hover{border-color: rgba(2,174,239,.85)}
+  .btn.gold{
+    border-color: rgba(238,177,32,.55);
+    background: rgba(238,177,32,.10);
+  }
+  .btn.ghost{
+    background: transparent;
+  }
+  .kpis{
+    display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;
+  }
+  @media(max-width:780px){.kpis{grid-template-columns:1fr}}
+  .kpi{
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:12px 12px;
+    background: rgba(0,0,0,.18);
+  }
+  .kpi .t{color:var(--muted); font-size:12px}
+  .kpi .v{font-size:20px; margin-top:6px; font-weight:800}
+  .kpi .s{margin-top:4px; color:var(--muted); font-size:12px}
+  .split{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    margin-top:12px;
+  }
+  @media(max-width:780px){.split{grid-template-columns:1fr}}
+  .tbl{width:100%; border-collapse:collapse; margin-top:12px; font-size:13px}
+  .tbl th,.tbl td{
+    padding:10px 8px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+    text-align:left;
+    vertical-align:top;
+  }
+  .tbl th{color:var(--muted); font-weight:600; font-size:12px}
+  .tag{display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid var(--line); font-size:12px; color:var(--muted)}
+  .dot{width:8px; height:8px; border-radius:99px; background: var(--accent)}
+  .dot.soft{background: rgba(238,177,32,.85)}
+  .dot.cost{background: rgba(255,92,119,.85)}
+  .mini{color:var(--muted); font-size:12px; line-height:1.35}
+  .note{
+    margin-top:10px;
+    padding:10px 12px;
+    border:1px dashed rgba(255,255,255,.18);
+    border-radius:14px;
+    background: rgba(255,255,255,.03);
+    color: var(--muted);
+    font-size:12px;
+    line-height:1.4;
+  }
+  /* modal */
+  .modalWrap{
+    position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    background: rgba(0,0,0,.62);
+    padding:18px;
+    z-index:99;
+  }
+  .modal{
+    width:min(760px, 100%);
+    background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+    border:1px solid rgba(255,255,255,.14);
+    border-radius: 18px;
+    box-shadow: 0 26px 80px rgba(0,0,0,.65);
+    overflow:hidden;
+  }
+  .modal .mh{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.12);
+    background: rgba(0,0,0,.18);
+  }
+  .modal .mh strong{font-size:14px}
+  .x{
+    width:34px; height:34px; border-radius:12px; border:1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.04);
+    color: var(--text);
+    cursor:pointer;
+  }
+  .modal .mb{padding:14px 14px 16px}
+  .modal ul{margin:8px 0 0 18px; color:var(--muted); line-height:1.5}
+  .modal p{margin:8px 0 0 0; color:var(--muted); line-height:1.5}
+  .warn{color:#ffd6dd}
+  .muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>IBM DOORS ROI calculator</h1>
+      <div class="sub">
+        Directional business case for DOORS / DOORS Next requirements management: **hard‑dollar savings** (time + cost reductions) and **soft benefits** (risk, compliance, delivery confidence) shown separately.
+        Use this as a conversation starter, then refine assumptions with the customer.
+      </div>
+      <div class="pillrow">
+        <span class="pill">Single‑file HTML • host anywhere</span>
+        <span class="pill">3‑year cashflow • NPV • payback</span>
+        <span class="pill">Scenario ranges • editable assumptions</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" id="btnRun">Recalculate</button>
+      <button class="btn" id="btnDownload">Download ROI summary</button>
+      <button class="btn ghost" id="btnHow">How this works</button>
+      <button class="btn ghost" id="btnAssumptions">Assumptions</button>
+      <button class="btn gold" id="btnExampleReg">Example: Regulated</button>
+      <button class="btn gold" id="btnExampleProd">Example: Product org</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <div class="hd">
+        <h2>Inputs</h2>
+        <span class="tag"><span class="dot"></span>Hard‑dollar drivers</span>
+      </div>
+      <div class="bd">
+        <div class="row">
+          <div class="field">
+            <div class="labelrow">
+              <label>Tool scope</label>
+              <span class="help" data-help="scope">?</span>
+            </div>
+            <select id="scope">
+              <option value="doors_next">DOORS Next (preferred)</option>
+              <option value="doors_classic">DOORS (classic)</option>
+              <option value="elm_req_plus">ELM Req Mgmt + reviews/trace/reporting</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <div class="labelrow">
+              <label>Scenario</label>
+              <span class="help" data-help="scenario">?</span>
+            </div>
+            <select id="scenario">
+              <option value="conservative">Conservative</option>
+              <option value="expected" selected>Expected</option>
+              <option value="aggressive">Aggressive</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Projects per year</label>
+              <span class="help" data-help="projects">?</span>
+            </div>
+            <input id="projects" type="number" value="12" min="0" step="1"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>Avg requirements per project</label>
+              <span class="help" data-help="reqPerProject">?</span>
+            </div>
+            <input id="reqPerProject" type="number" value="800" min="0" step="50"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>% requirements that change after baseline</label>
+              <span class="help" data-help="changeRate">?</span>
+            </div>
+            <input id="changeRate" type="number" value="20" min="0" max="100" step="1"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>% "rejected / churned" requirements</label>
+              <span class="help" data-help="rejectedRate">?</span>
+            </div>
+            <input id="rejectedRate" type="number" value="10" min="0" max="100" step="1"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Loaded cost per FTE (USD/year)</label>
+              <span class="help" data-help="fteCost">?</span>
+            </div>
+            <input id="fteCost" type="number" value="175000" min="0" step="5000"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>Work hours per year</label>
+              <span class="help" data-help="hoursYr">?</span>
+            </div>
+            <input id="hoursYr" type="number" value="1840" min="1" step="10"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Avg dev team size per project (FTEs)</label>
+              <span class="help" data-help="devTeam">?</span>
+            </div>
+            <input id="devTeam" type="number" value="10" min="0" step="1"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>Avg project duration (months)</label>
+              <span class="help" data-help="duration">?</span>
+            </div>
+            <input id="duration" type="number" value="8" min="0" step="1"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Defects per 100 requirements (baseline)</label>
+              <span class="help" data-help="defectRate">?</span>
+            </div>
+            <input id="defectRate" type="number" value="15" min="0" step="1"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>% defects found early (req/design) baseline</label>
+              <span class="help" data-help="earlyDetect">?</span>
+            </div>
+            <input id="earlyDetect" type="number" value="35" min="0" max="100" step="1"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Avg time to fix defect (early) hours</label>
+              <span class="help" data-help="fixEarly">?</span>
+            </div>
+            <input id="fixEarly" type="number" value="2" min="0" step="0.5"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>Avg time to fix defect (late) hours</label>
+              <span class="help" data-help="fixLate">?</span>
+            </div>
+            <input id="fixLate" type="number" value="12" min="0" step="0.5"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Minutes per requirement review</label>
+              <span class="help" data-help="reviewMin">?</span>
+            </div>
+            <input id="reviewMin" type="number" value="12" min="0" step="1"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>Reviewers per requirement</label>
+              <span class="help" data-help="reviewers">?</span>
+            </div>
+            <input id="reviewers" type="number" value="3" min="0" step="1"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Audit / compliance prep hours per project (baseline)</label>
+              <span class="help" data-help="auditHours">?</span>
+            </div>
+            <input id="auditHours" type="number" value="80" min="0" step="5"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>Opportunity cost per delayed month (USD)</label>
+              <span class="help" data-help="delayValue">?</span>
+            </div>
+            <input id="delayValue" type="number" value="25000" min="0" step="1000"/>
+          </div>
+        </div>
+
+        <div class="note">
+          Tip: if you don't know defect/rework numbers, start with Conservative/Expected, then adjust with the customer.
+          You can click any <b>?</b> to see a plain‑English explainer for that input.
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd">
+        <h2>Results</h2>
+        <span class="tag"><span class="dot soft"></span>Soft benefits shown separately</span>
+      </div>
+      <div class="bd">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="t">3‑year ROI (hard‑dollar)</div>
+            <div class="v" id="kpiROI">—</div>
+            <div class="s" id="kpiROISub">Net benefit / cost</div>
+          </div>
+          <div class="kpi">
+            <div class="t">Payback</div>
+            <div class="v" id="kpiPayback">—</div>
+            <div class="s">Months to breakeven (hard‑dollar)</div>
+          </div>
+          <div class="kpi">
+            <div class="t">NPV (3‑yr, hard‑dollar)</div>
+            <div class="v" id="kpiNPV">—</div>
+            <div class="s">Discounted at your rate</div>
+          </div>
+        </div>
+
+        <div class="split">
+          <div class="kpi">
+            <div class="t">Annual hard‑dollar savings</div>
+            <div class="v" id="kpiHardAnnual">—</div>
+            <div class="s">Rework + defects + reviews + compliance + tool consolidation</div>
+          </div>
+          <div class="kpi">
+            <div class="t">Annual soft benefits (not in ROI)</div>
+            <div class="v" id="kpiSoftAnnual">—</div>
+            <div class="s">Value of time‑to‑market + risk reduction (separately itemized)</div>
+          </div>
+        </div>
+
+        <table class="tbl" aria-label="ROI breakdown">
+          <thead>
+            <tr>
+              <th style="width:48%">Line item</th>
+              <th>Type</th>
+              <th style="text-align:right">Annual value</th>
+            </tr>
+          </thead>
+          <tbody id="breakdown"></tbody>
+        </table>
+
+        <div class="row" style="margin-top:12px">
+          <div class="field">
+            <div class="labelrow">
+              <label>Discount rate (annual %)</label>
+              <span class="help" data-help="discount">?</span>
+            </div>
+            <input id="discount" type="number" value="10" min="0" max="50" step="0.5"/>
+          </div>
+          <div class="field">
+            <div class="labelrow">
+              <label>3‑year cost of tool (licenses + services) USD</label>
+              <span class="help" data-help="cost3yr">?</span>
+            </div>
+            <input id="cost3yr" type="number" value="240000" min="0" step="5000"/>
+          </div>
+        </div>
+
+        <div class="note">
+          Want the model to recommend “DOORS vs DOORS Next vs ELM suite”? Add a pricing/packaging rule set and a few more inputs (users, integrations, compliance needs) — easy next step.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:14px">
+    <div class="hd">
+      <h2>Cashflow (hard‑dollar)</h2>
+      <span class="tag"><span class="dot cost"></span>Costs are spread over time</span>
+    </div>
+    <div class="bd">
+      <div class="mini">We spread the 3‑year cost: 40% Year 1, 35% Year 2, 25% Year 3 (editable inside the file).</div>
+      <table class="tbl" aria-label="Cashflow table">
+        <thead>
+          <tr>
+            <th></th>
+            <th style="text-align:right">Year 1</th>
+            <th style="text-align:right">Year 2</th>
+            <th style="text-align:right">Year 3</th>
+            <th style="text-align:right">Total</th>
+          </tr>
+        </thead>
+        <tbody id="cashflow"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<!-- Help modal -->
+<div class="modalWrap" id="modalWrap" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal">
+    <div class="mh">
+      <strong id="modalTitle">Help</strong>
+      <button class="x" id="modalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="mb">
+      <p id="modalBody" class="muted"></p>
+      <ul id="modalBullets"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   Plain JS, no dependencies
+   ========================= */
+
+(function(){
+  // ---- Sources for default ranges (edit freely) ----
+  // The old IBM/Alinean BVA "Product Savings Source" doc includes example productivity improvements for requirements activities
+  // such as tracking/capturing and editing requirements (e.g., 18% each), plus documentation generation and communications. (See citations in your written explainer.)
+  const RANGE = {
+    conservative: {
+      req_productivity_pct: 0.06,
+      review_efficiency_pct: 0.08,
+      defect_shift_pct: 0.08,
+      compliance_efficiency_pct: 0.10,
+      tool_consolidation_pct: 0.04,
+      time_to_market_pct: 0.01
+    },
+    expected: {
+      req_productivity_pct: 0.10,
+      review_efficiency_pct: 0.15,
+      defect_shift_pct: 0.12,
+      compliance_efficiency_pct: 0.20,
+      tool_consolidation_pct: 0.07,
+      time_to_market_pct: 0.02
+    },
+    aggressive: {
+      req_productivity_pct: 0.16,
+      review_efficiency_pct: 0.22,
+      defect_shift_pct: 0.18,
+      compliance_efficiency_pct: 0.30,
+      tool_consolidation_pct: 0.10,
+      time_to_market_pct: 0.03
+    }
+  };
+
+  // How we spread 3-yr costs across years (edit freely)
+  const COST_SPLIT = [0.40, 0.35, 0.25];
+
+  // Soft benefits are shown but excluded from ROI by default
+  const SOFT = {
+    include_in_roi: false
+  };
+
+  // ---- Help popups (edit freely) ----
+  const HELP = {
+    how: {
+      title: "How this calculator works",
+      body:
+        "It estimates (1) hard‑dollar savings from fewer hours spent on rework/defects/reviews/compliance and (2) soft benefits like time‑to‑market. The hard‑dollar ROI uses scenario ranges you can tune with the customer.",
+      bullets: [
+        "Hard‑dollar = labor hours saved × loaded hourly rate + tool spend reduction.",
+        "Defect savings = more defects detected early (cheaper to fix) rather than late.",
+        "Rework savings = fewer 'wrong build' days caused by unclear / changing requirements.",
+        "Soft benefits (time‑to‑market, risk reduction) are shown separately so buyers can decide whether to count them."
+      ]
+    },
+    assumptions: {
+      title: "Assumptions (buyer‑friendly)",
+      body:
+        "Scenario ranges represent typical outcomes when requirements practices improve (better capture, change control, traceability, reviews, reporting). If you already have strong governance, pick Conservative; if you have frequent changes/rework and heavy audits, Expected/Aggressive may fit.",
+      bullets: [
+        "Productivity improvement is applied to 'requirements work' and review overhead.",
+        "Defect shift assumes a portion of defects move from late stages to early stages.",
+        "Compliance efficiency reduces audit prep hours per project.",
+        "Time‑to‑market value uses a small % reduction in duration × your 'value per delayed month'."
+      ]
+    },
+    scope: {
+      title: "Tool scope",
+      body:
+        "Choose the DOORS tool context. DOORS Next generally supports web collaboration, workflows, traceability, reviews, and reporting in a modern stack; classic DOORS may require more local client and admin overhead.",
+      bullets: [
+        "This choice mainly tunes default adoption/efficiency assumptions.",
+        "If you will also standardize reviews, baselines, and reporting, pick 'ELM Req Mgmt +'."
+      ]
+    },
+    scenario: { title:"Scenario", body:"Conservative/Expected/Aggressive set assumption ranges used in the math. You can open 'Assumptions' to see what moves.", bullets:["Use Conservative for mature orgs with good discipline already.","Use Expected when requirements churn and compliance reporting create visible overhead.","Use Aggressive when change control, traceability gaps, and rework are major pain points."]},
+    projects: { title:"Projects per year", body:"How many delivery efforts per year will use the tool (new dev + major enhancements).", bullets:["If you have one very large program, enter 1 and adjust team size/duration.","If the tool will roll out gradually, lower this for year 1 and use Conservative."]},
+    reqPerProject: { title:"Requirements per project", body:"Approximate count of requirements (or requirement-like items) actively managed per project.", bullets:["You can include epics/features/safety requirements depending on your process.","If you already decompose in Agile tools, use the count of items you need traceability on."]},
+    changeRate: { title:"% requirements that change after baseline", body:"A proxy for churn. Higher churn increases the value of baselines, impact analysis, and change control.", bullets:["If you baseline weekly, use the % that changes after 'approved baseline'.","If you don’t baseline today, estimate how many requirements change after initial agreement."]},
+    rejectedRate: { title:"% rejected / churned requirements", body:"Requirements that are later dropped, re-written, or found unnecessary. Better early validation reduces this waste.", bullets:["If you don’t measure this, use 5–15% as a starting range."]},
+    fteCost: { title:"Loaded cost per FTE", body:"Fully loaded annual cost (salary + benefits + overhead). Used to value time savings.", bullets:["If you know role-based rates, you can extend this model easily.","Common US ranges: $140k–$220k depending on mix."]},
+    hoursYr: { title:"Work hours per year", body:"Used to convert annual FTE cost into an hourly rate.", bullets:["Typical: 1840 (46 weeks × 40 hrs)."]},
+    devTeam: { title:"Dev team size per project", body:"Average number of people building/testing per project (FTE equivalent).", bullets:["Used to estimate cost of rework days and late defect fixing.","Include engineers + test + systems, if they are impacted by requirements churn."]},
+    duration: { title:"Project duration", body:"Average duration in months. Used for time‑to‑market (soft) value and rework scaling.", bullets:["If you ship continuously, use the typical major release window."]},
+    defectRate: { title:"Defects per 100 requirements", body:"Baseline defects that trace back to requirements/analysis issues.", bullets:["This is directional. If you track defects by root cause, use that number.","If unknown, 10–25 per 100 req is a starting range for complex systems."]},
+    earlyDetect: { title:"% defects found early", body:"Percent of those defects found during requirements/design rather than later testing/production.", bullets:["Better traceability/reviews shift detection earlier.","If you only have test vs prod, treat 'test' as late and use a lower % here."]},
+    fixEarly: { title:"Fix time (early)", body:"Avg hours to resolve a defect found early (clarify req, update design, update tests).", bullets:["Often 1–4 hours depending on process and approvals."]},
+    fixLate: { title:"Fix time (late)", body:"Avg hours to resolve a defect found late (rework code, retest, revalidate, documentation).", bullets:["Often 8–40 hours depending on criticality and compliance."]},
+    reviewMin: { title:"Minutes per requirement review", body:"Total participant time per requirement review (per reviewer).", bullets:["Includes reading + comment + approval workflow time.","If you use formal reviews, this may be higher."]},
+    reviewers: { title:"Reviewers per requirement", body:"Avg number of people who review/approve a requirement.", bullets:["Include internal stakeholders, QA, safety, compliance approvers if applicable."]},
+    auditHours: { title:"Audit/compliance prep hours", body:"Hours per project spent collecting evidence, generating requirement docs, trace matrices, and approvals.", bullets:["If you are in regulated industries, this can be 40–300+ hours per project.","Better traceability and reporting can reduce this significantly."]},
+    delayValue: { title:"Opportunity cost per delayed month", body:"Soft value of delivering later (revenue, penalties, customer churn risk, internal productivity loss).", bullets:["If you don’t want to use soft benefits, set this to 0."]},
+    discount: { title:"Discount rate", body:"Annual discount rate for NPV. Used to discount future net benefits.", bullets:["If you want a simple ROI without NPV, you can ignore this."]},
+    cost3yr: { title:"3‑year cost", body:"Total cost for licenses + implementation services + training over 3 years.", bullets:["Use a CPQ estimate or placeholder, then refine.","This tool spreads it across years; edit COST_SPLIT in the file if needed."]}
+  };
+
+  // ---- Small helpers ----
+  const $ = (id)=>document.getElementById(id);
+  const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+  const money=(n)=> {
+    if(!isFinite(n)) return "—";
+    const abs=Math.abs(n);
+    const s = abs>=1e9 ? (abs/1e9).toFixed(2)+"B" :
+              abs>=1e6 ? (abs/1e6).toFixed(2)+"M" :
+              abs>=1e3 ? (abs/1e3).toFixed(1)+"K" :
+              abs.toFixed(0);
+    const pref = n<0? "−$" : "$";
+    return pref + s;
+  };
+  const pct=(n)=> (isFinite(n)? (n*100).toFixed(0)+"%" : "—");
+
+  function hourlyRate(){
+    const fte = Number($("fteCost").value||0);
+    const h = Math.max(1, Number($("hoursYr").value||1840));
+    return fte / h;
+  }
+
+  // ---- Core math ----
+  function compute(){
+    const scen = $("scenario").value;
+    let a = RANGE[scen];
+
+    const scope = $("scope").value;
+    // lightweight scope tuning
+    let scopeMult = 1.0;
+    if(scope==="doors_classic") scopeMult = 0.92;
+    if(scope==="elm_req_plus") scopeMult = 1.08;
+
+    const projects = Number($("projects").value||0);
+    const reqPerProject = Number($("reqPerProject").value||0);
+    const changeRate = clamp(Number($("changeRate").value||0),0,100)/100;
+    const rejectedRate = clamp(Number($("rejectedRate").value||0),0,100)/100;
+
+    const devTeam = Number($("devTeam").value||0);
+    const durationMo = Number($("duration").value||0);
+
+    const defectPer100 = Number($("defectRate").value||0);
+    const earlyBase = clamp(Number($("earlyDetect").value||0),0,100)/100;
+    const fixEarly = Number($("fixEarly").value||0);
+    const fixLate = Number($("fixLate").value||0);
+
+    const reviewMin = Number($("reviewMin").value||0);
+    const reviewers = Number($("reviewers").value||0);
+
+    const auditHours = Number($("auditHours").value||0);
+    const delayValue = Number($("delayValue").value||0);
+
+    const cost3yr = Number($("cost3yr").value||0);
+    const disc = clamp(Number($("discount").value||0),0,50)/100;
+
+    const hr = hourlyRate();
+
+    // total requirements processed per year (approx)
+    const annualReq = projects * reqPerProject;
+
+    // 1) Requirements productivity savings (hard) — apply to "requirements work"
+    //    We model baseline requirements effort as time to write/modify/communicate per req.
+    //    Start with a conservative baseline of 0.6h per requirement, scaled with change rate.
+    const baseReqHrsPerReq = 0.60 + 0.40*changeRate; // 0.6–1.0h
+    const baselineReqHrs = annualReq * baseReqHrsPerReq;
+    const reqSavings = baselineReqHrs * (a.req_productivity_pct*scopeMult) * hr;
+
+    // 2) Review efficiency savings (hard)
+    const baselineReviewHrs = annualReq * (reviewMin/60) * reviewers;
+    const reviewSavings = baselineReviewHrs * (a.review_efficiency_pct*scopeMult) * hr;
+
+    // 3) Rejected/churned requirements savings (hard) — avoid unnecessary work
+    //    If a requirement is rejected, assume it causes 1.0h of analysis + 1.5h of dev/test effort.
+    //    DOORS helps reduce rejected requirements by better elicitation/traceability/reviews.
+    const rejectedCount = annualReq * rejectedRate;
+    const rejectAvoidPct = (0.10 + a.req_productivity_pct)*scopeMult; // 16–26% expected-ish
+    const rejectHrsAvoided = rejectedCount * (1.0 + 1.5*devTeam/10);  // scale with team size
+    const rejectSavings = rejectHrsAvoided * rejectAvoidPct * hr;
+
+    // 4) Defect detection shift (hard)
+    //    Some % of defects move from late stage to early stage.
+    const defects = annualReq * (defectPer100/100);
+    const shiftPct = a.defect_shift_pct*scopeMult;
+    const earlyAfter = clamp(earlyBase + shiftPct, 0, 0.95);
+    const earlyAdded = Math.max(0, earlyAfter - earlyBase);
+    const shiftedDefects = defects * earlyAdded;
+    const hrsSavedPerShift = Math.max(0, fixLate - fixEarly);
+    const defectSavings = shiftedDefects * hrsSavedPerShift * hr;
+
+    // 5) Compliance/audit prep efficiency (hard)
+    const auditSavings = (projects * auditHours) * (a.compliance_efficiency_pct*scopeMult) * hr;
+
+    // 6) Tool consolidation (hard) — small % of "requirements tool spend"
+    //    We approximate by applying a % to annual cost run-rate.
+    const annualToolCostRunRate = cost3yr/3;
+    const toolConsolidation = annualToolCostRunRate * (a.tool_consolidation_pct);
+
+    // Soft: time-to-market benefit (not counted in ROI by default)
+    const timeToMarketMoSaved = durationMo * (a.time_to_market_pct*scopeMult);
+    const softTimeToMarket = projects * timeToMarketMoSaved * delayValue;
+
+    const hardAnnual = reqSavings + reviewSavings + rejectSavings + defectSavings + auditSavings + toolConsolidation;
+    const softAnnual = softTimeToMarket;
+
+    // Cashflow over 3 years (hard only for ROI)
+    const costs = COST_SPLIT.map(x=>x*cost3yr);
+    const benefits = [hardAnnual, hardAnnual, hardAnnual]; // simple steady state (can be ramped)
+    const net = benefits.map((b,i)=>b - costs[i]);
+
+    // Payback (monthly, linear within years)
+    let cum=0, paybackMonths=null;
+    for(let y=0;y<3;y++){
+      const monthly = net[y]/12;
+      for(let m=1;m<=12;m++){
+        cum += monthly;
+        if(cum>=0 && paybackMonths===null){
+          paybackMonths = y*12 + m;
+          break;
+        }
+      }
+      if(paybackMonths!==null) break;
+    }
+
+    // ROI, NPV
+    const totalBenefits = benefits.reduce((s,x)=>s+x,0);
+    const totalCosts = costs.reduce((s,x)=>s+x,0);
+    const roi = totalCosts>0 ? (totalBenefits - totalCosts)/totalCosts : NaN;
+
+    const npv = net.reduce((s,x,i)=> s + (x/Math.pow(1+disc, i+1)), 0);
+
+    // Build breakdown
+    const lines = [
+      {name:"Requirements authoring + change control productivity", type:"Hard", annual:reqSavings},
+      {name:"Review workflow efficiency (less admin + faster approvals)", type:"Hard", annual:reviewSavings},
+      {name:"Avoided churn/rejected requirements (less wasted work)", type:"Hard", annual:rejectSavings},
+      {name:"Defect detection shift (fix earlier vs later)", type:"Hard", annual:defectSavings},
+      {name:"Compliance & audit prep effort reduction", type:"Hard", annual:auditSavings},
+      {name:"Tool consolidation / reduced adjacent tool spend", type:"Hard", annual:toolConsolidation},
+      {name:"Time‑to‑market / delay avoidance (soft)", type:"Soft", annual:softAnnual}
+    ];
+
+    return {hardAnnual, softAnnual, roi, npv, paybackMonths, costs, benefits, net, lines};
+  }
+
+  function render(){
+    const r = compute();
+
+    $("kpiROI").textContent = isFinite(r.roi) ? (r.roi*100).toFixed(0)+"%" : "—";
+    $("kpiPayback").textContent = (r.paybackMonths===null) ? "No payback <3yr" : (r.paybackMonths+" mo");
+    $("kpiNPV").textContent = money(r.npv);
+
+    $("kpiHardAnnual").textContent = money(r.hardAnnual);
+    $("kpiSoftAnnual").textContent = money(r.softAnnual);
+
+    // breakdown table
+    const tb = $("breakdown");
+    tb.innerHTML = "";
+    r.lines.forEach(x=>{
+      const tr = document.createElement("tr");
+      const t = x.type==="Hard" ? '<span class="tag"><span class="dot"></span>Hard</span>' :
+                                 '<span class="tag"><span class="dot soft"></span>Soft</span>';
+      tr.innerHTML = `
+        <td>${escapeHtml(x.name)}</td>
+        <td>${t}</td>
+        <td style="text-align:right">${money(x.annual)}</td>
+      `;
+      tb.appendChild(tr);
+    });
+
+    // cashflow
+    const cf = $("cashflow");
+    cf.innerHTML = "";
+    const row = (label, arr, total)=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <th>${label}</th>
+        <td style="text-align:right">${money(arr[0])}</td>
+        <td style="text-align:right">${money(arr[1])}</td>
+        <td style="text-align:right">${money(arr[2])}</td>
+        <td style="text-align:right">${money(total)}</td>
+      `;
+      cf.appendChild(tr);
+    };
+    row("Benefits", r.benefits, r.benefits.reduce((s,x)=>s+x,0));
+    row("Costs", r.costs.map(x=>-x), -r.costs.reduce((s,x)=>s+x,0));
+    row("Net", r.net, r.net.reduce((s,x)=>s+x,0));
+  }
+
+  // ---- Download summary ----
+  function downloadSummary(){
+    const r = compute();
+    const scen = $("scenario").value;
+    const scope = $("scope").value;
+    const hr = hourlyRate();
+
+    const lines = r.lines.map(x=>`- ${x.type}: ${x.name}: ${money(x.annual)}/yr`).join("\n");
+
+    const txt =
+`IBM DOORS ROI Summary (directional)
+---------------------------------
+Scope: ${scope}
+Scenario: ${scen}
+
+Key inputs
+- Projects/year: ${$("projects").value}
+- Requirements/project: ${$("reqPerProject").value}
+- Loaded hourly rate (derived): ${money(hr)}/hr
+- 3-year cost: ${money(Number($("cost3yr").value||0))}
+
+Results (hard-dollar)
+- Annual hard-dollar savings: ${money(r.hardAnnual)}
+- 3-yr ROI: ${isFinite(r.roi)? (r.roi*100).toFixed(0)+'%':'—'}
+- Payback: ${r.paybackMonths===null ? 'No payback <3yr' : r.paybackMonths+' months'}
+- NPV (3-yr): ${money(r.npv)}
+
+Breakdown (annual)
+${lines}
+
+Notes
+- Soft benefits (time-to-market) are shown separately and not included in ROI by default.
+- Edit assumptions in this HTML file (RANGE object) to match the customer.
+`;
+
+    const blob = new Blob([txt], {type:"text/plain;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "doors-roi-summary.txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+
+  // ---- Help modal ----
+  const modalWrap = $("modalWrap");
+  const modalTitle = $("modalTitle");
+  const modalBody = $("modalBody");
+  const modalBullets = $("modalBullets");
+
+  function openHelp(key){
+    const h = HELP[key];
+    if(!h){
+      console.error("Help popup not found for key:", key);
+      alert("Popup not found: " + key + " (check HELP object)");
+      return;
+    }
+    modalTitle.textContent = h.title || "Help";
+    modalBody.textContent = h.body || "";
+    modalBullets.innerHTML = "";
+    (h.bullets||[]).forEach(b=>{
+      const li=document.createElement("li");
+      li.textContent=b;
+      modalBullets.appendChild(li);
+    });
+    modalWrap.style.display="flex";
+    modalWrap.setAttribute("aria-hidden","false");
+  }
+  function closeHelp(){
+    modalWrap.style.display="none";
+    modalWrap.setAttribute("aria-hidden","true");
+  }
+  $("modalClose").addEventListener("click", closeHelp);
+  modalWrap.addEventListener("click", (e)=>{ if(e.target===modalWrap) closeHelp(); });
+  document.addEventListener("keydown", (e)=>{ if(e.key==="Escape") closeHelp(); });
+
+  // ---- Examples ----
+  function setExample(which){
+    if(which==="regulated"){
+      $("projects").value = 10;
+      $("reqPerProject").value = 1200;
+      $("changeRate").value = 25;
+      $("rejectedRate").value = 12;
+      $("devTeam").value = 12;
+      $("duration").value = 10;
+      $("auditHours").value = 160;
+      $("delayValue").value = 30000;
+      $("defectRate").value = 18;
+      $("earlyDetect").value = 30;
+      $("fixLate").value = 16;
+      $("reviewMin").value = 14;
+      $("reviewers").value = 4;
+      $("cost3yr").value = 320000;
+      $("scenario").value = "expected";
+    }
+    if(which==="product"){
+      $("projects").value = 16;
+      $("reqPerProject").value = 650;
+      $("changeRate").value = 18;
+      $("rejectedRate").value = 8;
+      $("devTeam").value = 8;
+      $("duration").value = 6;
+      $("auditHours").value = 50;
+      $("delayValue").value = 20000;
+      $("defectRate").value = 12;
+      $("earlyDetect").value = 40;
+      $("fixLate").value = 10;
+      $("reviewMin").value = 10;
+      $("reviewers").value = 3;
+      $("cost3yr").value = 210000;
+      $("scenario").value = "expected";
+    }
+    render();
+  }
+
+  // ---- Wire up UI ----
+  $("btnRun").addEventListener("click", render);
+  $("btnDownload").addEventListener("click", downloadSummary);
+  $("btnHow").addEventListener("click", ()=>openHelp("how"));
+  $("btnAssumptions").addEventListener("click", ()=>openHelp("assumptions"));
+  $("btnExampleReg").addEventListener("click", ()=>setExample("regulated"));
+  $("btnExampleProd").addEventListener("click", ()=>setExample("product"));
+
+  document.querySelectorAll(".help[data-help]").forEach(el=>{
+    el.addEventListener("click", ()=>openHelp(el.getAttribute("data-help")));
+  });
+
+  // initial render
+  render();
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, (m)=>({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+})();
+</script>
+</body>
+</html>
